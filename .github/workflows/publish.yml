@@ -71,8 +71,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build and pack (runs prepublishOnly)
-        run: npm pack
+      - name: Build package
+        run: NODE_ENV=production bun run build
 
       - name: Verify build output
         run: |
@@ -82,7 +82,10 @@ jobs:
           fi
 
           echo "✅ Build output verified"
-
+          
+      - name: Build and pack (runs prepublishOnly)
+        run: npm pack --ignore-scripts
+        
       - name: Validate package
         run: bunx publint
 
@@ -90,17 +93,18 @@ jobs:
         run: |
           mkdir -p test-install && cd test-install
 
-          npm init -y
-          npm install ../*.tgz
+          echo '{"name":"test-install","type":"module"}' > package.json
 
-          node -e "
+          bun add ../*.tgz
+
+          bun -e "
             import('${{ steps.pkg.outputs.name }}')
               .then((m) => { console.log('✅ Package import successful'); console.log('📦 Exports:', Object.keys(m)); process.exit(0); })
               .catch((e) => { console.error('❌ Package import failed:', e); process.exit(1); })
           "
 
       - name: Publish to NPM (no scripts)
-        run: npm publish --ignore-scripts
+        run: npm publish --provenance --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         # O bun não tem suporte oficial a provenance, então usar o npm para publicar
